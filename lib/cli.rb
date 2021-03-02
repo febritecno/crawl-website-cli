@@ -1,5 +1,3 @@
-require "./config/environment"
-
 class Cli
 
   def initialize

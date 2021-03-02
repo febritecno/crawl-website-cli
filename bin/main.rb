@@ -1,4 +1,4 @@
-require './bin/cli'
+require "./config/environment"
 # db.execute "INSERT INTO result_crawler (name, price, details,insert_id) VALUES ('dwadaw', '3243', 'fse',2)"
 # db = SQLITE.new().connect
 # puts db.execute "SELECT insert_id from result_crawler where insert_id = (SELECT max(insert_id) from result_crawler)"

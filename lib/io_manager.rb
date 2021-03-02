@@ -1,9 +1,9 @@
 require 'io/console'
-require "./config/connector"
 
 class IoManager
   class << self
     BREAKER = '------------------------------------------'.freeze
+    WEBSITE = "https://magento-test.finology.com.my".freeze
 
     # works with Cli class to get input
     def parse_layer_input(layer)
@@ -16,21 +16,6 @@ class IoManager
       else
         { input: input, layer: layer }
       end
-    end
-
-    def print_product_array(array)
-      puts BREAKER
-      array.each do |element|
-        puts element
-        puts ''
-      end
-      puts BREAKER
-    end
-
-    def print_single_product(article_string)
-      puts "\n" + BREAKER
-      puts article_string
-      puts BREAKER + "\n\n"
     end
 
     # ||||||||||||||||||||||||||||||||
@@ -66,11 +51,63 @@ first run the command `update` to retrieve data from the website and see the res
     end
 
     def show
-      puts "hello"
+      db = SQLITE.new.connect
+
+      number = 0
+      array_data = []
+
+      query = db.prepare "SELECT name,price,details from result_crawler where insert_id = (SELECT max(insert_id) from result_crawler)"
+      result_query = query.execute
+
+      result_query.each do |row|
+        row.each do |data|
+          array_data.push(data)
+        end
+      end
+
+      array_to_str = "#{array_data.join(",")}"
+      print array_to_str
+      convert_data = array_to_str.split(",").each_slice(3).map{|s|{ name: s[0].to_s, price: s[1].to_s, desc: s[2].to_s }}
+      result = convert_data.to_json
+
+      obj = JSON.parse(result)
+
+      obj.each do |data|
+        puts BREAKER
+        puts "NO: #{number+=1}"
+        puts "Name: #{data["name"]}"
+        puts "Price: #{data["price"]}"
+        puts "Description: #{data["desc"]}"
+        puts BREAKER
+        puts " "
+      end
     end
 
     def update
-      puts "ano"
+      db = SQLITE.new.connect
+
+      get_insert_id = db.execute "SELECT MAX(insert_id) from result_crawler LIMIT 1"
+      insert_id = ((get_insert_id.nil?) ? 1 : (get_insert_id.join('').to_i) + 1)
+
+      collect_url = []
+
+      html = Nokogiri::HTML(HTTParty.get(WEBSITE).body)
+      puts("===== [GET] Crawling Website =====")
+      html.css(".product-item").each_with_index do |element|
+         collect_url.push(element.at("a").attributes["href"].value)
+      end
+      puts("===== [PROCESS] Fetch Data =====")
+      collect_url.each_with_index do |element|
+        body = Nokogiri::HTML(HTTParty.get(element).body)
+
+        title = body.css(".page-title").search(".base").text
+        price = body.css(".product-info-price").search(".price").text
+        desc = body.css(".product").search(".value").text
+
+        insert_query = db.execute "INSERT INTO result_crawler (name, price, details, insert_id) VALUES (?,?,?,?)",title,price,desc,insert_id
+        puts("===== [SUCCESS] Data Update! =====")
+      end
+
     end
 
     # ||||||||||||||||||||||||||||||||||||||||||||||||
